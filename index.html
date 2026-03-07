@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wheel of Names</title>
+    <style>
+        /* Global Styles */
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f0f0; overflow: hidden; }
+        
+        /* Opera GX / Win 11 Theme for VM */
+        .gx-theme { background-color: #0f0f15 !important; color: #ffffff; }
+        .red-accent { color: #fa1853; }
+        
+        /* Containers */
+        .screen-state { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; position: absolute; top: 0; left: 0; background: #fff;}
+        
+        /* CAPTCHA Styles */
+        #captcha-blur { font-size: 40px; filter: blur(6px); user-select: none; margin-bottom: 20px; font-weight: bold; background: repeating-linear-gradient(45deg, #ccc, #ccc 10px, #eee 10px, #eee 20px); padding: 20px;}
+        .input-box { padding: 10px; width: 250px; border: 2px solid #ccc; border-radius: 5px; font-size: 16px; }
+        .btn { padding: 10px 20px; margin-top: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;}
+        .btn:hover { background: #0056b3; }
+
+        /* Wheel Styles */
+        #name-list { list-style-type: none; padding: 0; width: 300px; text-align: left; background: #f9f9f9; border: 1px solid #ddd; border-radius: 5px; min-height: 100px; padding: 10px;}
+        #name-list li { padding: 5px; border-bottom: 1px solid #eee; }
+        .wheel-circle { width: 150px; height: 150px; border-radius: 50%; background: conic-gradient(#ff9a9e, #fecfef, #ff9a9e); border: 4px solid #333; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; font-weight: bold;}
+
+        /* Pixel Volcano Styles */
+        #volcano-canvas {
+            display: block;
+            background-color: #000;
+        }
+        #volcano-state {
+            display: none;
+            background-color: #000;
+            color: #ff4500;
+        }
+
+        /* Ashfall VM Styles - UPDATED BACKGROUND */
+        #vm-state { 
+            background: url('https://image.pollinations.ai/prompt/dark%20underwater%20ocean%20pixel%20art%20background?width=1920&height=1080&nologo=true') center/cover; 
+            image-rendering: pixelated; /* Keeps the pixel art sharp */
+            display: none; 
+        }
+        
+        .taskbar { position: absolute; bottom: 0; width: 100%; height: 50px; background: rgba(15, 15, 21, 0.85); backdrop-filter: blur(10px); border-top: 1px solid #fa1853; display: flex; justify-content: center; align-items: center; gap: 15px; }
+        .taskbar-btn { background: transparent; border: 1px solid transparent; color: white; padding: 8px 15px; border-radius: 5px; cursor: pointer; transition: 0.3s; }
+        .taskbar-btn:hover { background: rgba(250, 24, 83, 0.2); border: 1px solid #fa1853; }
+        .window { width: 80%; height: 75%; background: rgba(20, 20, 28, 0.95); border: 1px solid #fa1853; border-radius: 8px; box-shadow: 0 0 20px rgba(250, 24, 83, 0.3); display: flex; flex-direction: column; overflow: hidden; margin-top: -50px;}
+        .window-header { background: #0f0f15; padding: 10px; display: flex; justify-content: space-between; border-bottom: 1px solid #fa1853; font-weight: bold; color: #fa1853; }
+        .browser-bar { display: flex; padding: 10px; background: #1a1a24; border-bottom: 1px solid #333; }
+        .browser-bar input { flex-grow: 1; padding: 5px; background: #0f0f15; border: 1px solid #fa1853; color: white; border-radius: 4px; }
+        .browser-bar button { background: #fa1853; color: white; border: none; padding: 5px 15px; margin-left: 10px; border-radius: 4px; cursor: pointer; }
+        #vm-iframe { width: 100%; height: 100%; border: none; background: white; }
+    </style>
+</head>
+<body>
+
+    <div id="captcha-state" class="screen-state">
+        <h2>Security Check</h2>
+        <div id="captcha-blur">vX8qPwL</div>
+        <p>Please type the word above to prove you are human:</p>
+        <input type="text" id="captcha-input" class="input-box" placeholder="Enter text...">
+        <button class="btn" onclick="checkCaptcha()">Submit</button>
+    </div>
+
+    <div id="wheel-state" class="screen-state" style="display: none;">
+        <h2>Wheel of Names</h2>
+        <div class="wheel-circle">SPIN</div>
+        <div>
+            <input type="text" id="name-input" class="input-box" placeholder="Add a name...">
+            <button class="btn" onclick="addName()">Add</button>
+        </div>
+        <ul id="name-list"></ul>
+        <button class="btn" style="background-color: #28a745;" onclick="spinWheel()">Spin Wheel</button>
+    </div>
+
+    <div id="volcano-state" class="screen-state">
+        <canvas id="volcano-canvas"></canvas>
+    </div>
+
+    <div id="vm-state" class="screen-state gx-theme">
+        <div class="window" id="main-window">
+            <div class="window-header">
+                <span>Ashfall System - Proxy Browser</span>
+                <span style="cursor:pointer;" onclick="closeWindow()">❌</span>
+            </div>
+            <div class="browser-bar">
+                <input type="text" id="url-input" placeholder="Enter URL (e.g., https://example.com)">
+                <button onclick="loadUrl()">Go</button>
+            </div>
+            <iframe id="vm-iframe" src="about:blank"></iframe>
+        </div>
+
+        <div class="taskbar">
+            <button class="taskbar-btn" style="font-weight: bold; color: #fa1853;">Ashfall</button>
+            <button class="taskbar-btn" onclick="openWindow()">Browser</button>
+            <button class="taskbar-btn" onclick="openAppStore()">App Store</button>
+            <button class="taskbar-btn" onclick="openGames()">Games</button>
+        </div>
+    </div>
+
+    <script>
+        let wheelNames = [];
+        let canvas, ctx, particles = [];
+        const PIXEL_SIZE = 5; 
+        
+        let eruptionFrames = 0;
+        const MAX_ERUPTION_FRAMES = 120; 
+
+        function drawPixel(x, y, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x * PIXEL_SIZE, y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+        }
+
+        function drawUnderwaterVolcano() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            
+            ctx.fillStyle = '#0a0a20'; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            for (let y = 0; y < canvas.height / PIXEL_SIZE; y++) {
+                let alpha = 0.1 + (y / (canvas.height / PIXEL_SIZE)) * 0.3; 
+                ctx.fillStyle = `rgba(10, 10, 32, ${alpha})`;
+                ctx.fillRect(0, y * PIXEL_SIZE, canvas.width, PIXEL_SIZE);
+            }
+
+            const volcanoBaseX = (canvas.width / PIXEL_SIZE) / 2;
+            const volcanoBaseY = (canvas.height / PIXEL_SIZE) - 20;
+
+            for (let i = 0; i < 20; i++) {
+                drawPixel(volcanoBaseX - 15 + i, volcanoBaseY + Math.sin(i * 0.2) * 2, '#333333');
+                drawPixel(volcanoBaseX - 14 + i, volcanoBaseY + Math.sin(i * 0.2) * 2 + 1, '#444444');
+                drawPixel(volcanoBaseX - 13 + i, volcanoBaseY + Math.sin(i * 0.2) * 2 + 2, '#555555');
+            }
+
+            for (let y = 0; y < 15; y++) {
+                const width = Math.max(1, 20 - y);
+                for (let x = 0; x < width; x++) {
+                    const color = (Math.random() > 0.8) ? '#662222' : '#441111'; 
+                    drawPixel(volcanoBaseX - width / 2 + x, volcanoBaseY - y, color);
+                }
+            }
+            
+            for (let i = 0; i < 5; i++) {
+                drawPixel(volcanoBaseX - 2 + Math.random() * 4, volcanoBaseY - 18 - i * 2, `rgba(150,200,255,${0.2 + Math.random() * 0.4})`);
+            }
+        }
+
+        function createParticle(x, y, color) {
+            return { x: x, y: y, vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 1) * 4, life: 60, color: color };
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.1; 
+                p.life--;
+
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function drawParticles() {
+            particles.forEach(p => {
+                const alpha = p.life / 60;
+                ctx.fillStyle = `rgba(${parseInt(p.color.slice(1,3), 16)},${parseInt(p.color.slice(3,5), 16)},${parseInt(p.color.slice(5,7), 16)},${alpha})`;
+                ctx.fillRect(p.x * PIXEL_SIZE, p.y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+            });
+        }
+
+        function animateVolcanoEruption() {
+            drawUnderwaterVolcano(); 
+
+            const volcanoTopX = (canvas.width / PIXEL_SIZE) / 2;
+            const volcanoTopY = (canvas.height / PIXEL_SIZE) - 35; 
+
+            if (eruptionFrames < MAX_ERUPTION_FRAMES) {
+                for (let i = 0; i < 10; i++) {
+                    particles.push(createParticle(volcanoTopX + (Math.random() - 0.5) * 5, volcanoTopY, '#ff4500')); 
+                    particles.push(createParticle(volcanoTopX + (Math.random() - 0.5) * 5, volcanoTopY, '#ff8c00')); 
+                    particles.push(createParticle(volcanoTopX + (Math.random() - 0.5) * 5, volcanoTopY, '#444444')); 
+                }
+                eruptionFrames++;
+            }
+
+            updateParticles();
+            drawParticles();
+
+            if (eruptionFrames < MAX_ERUPTION_FRAMES || particles.length > 0) {
+                requestAnimationFrame(animateVolcanoEruption);
+            } else {
+                ctx.clearRect(0, 0, canvas.width, canvas.height); 
+                document.getElementById('volcano-state').style.display = 'none';
+                document.getElementById('vm-state').style.display = 'flex';
+                document.title = "Ashfall VM";
+            }
+        }
+
+        function checkCaptcha() {
+            const input = document.getElementById('captcha-input').value;
+            if (input === "3409 the nebula will arise") {
+                document.getElementById('captcha-state').style.display = 'none';
+                document.getElementById('wheel-state').style.display = 'flex';
+            } else {
+                alert("Incorrect CAPTCHA. Please try again.");
+            }
+        }
+
+        function addName() {
+            const nameInput = document.getElementById('name-input');
+            const name = nameInput.value.trim();
+            if (name) {
+                wheelNames.push(name);
+                const li = document.createElement('li');
+                li.textContent = name;
+                document.getElementById('name-list').appendChild(li);
+                nameInput.value = '';
+            }
+        }
+
+        function spinWheel() {
+            if (wheelNames.includes("The shadow government") && wheelNames.includes("3409 the nebula will arise")) {
+                document.getElementById('wheel-state').style.display = 'none';
+                document.getElementById('volcano-state').style.display = 'flex';
+                
+                canvas = document.getElementById('volcano-canvas');
+                ctx = canvas.getContext('2d');
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                ctx.imageSmoothingEnabled = false;
+
+                drawUnderwaterVolcano(); 
+                
+                eruptionFrames = 0; 
+
+                setTimeout(() => {
+                    animateVolcanoEruption();
+                }, 1000); 
+                
+            } else {
+                if(wheelNames.length === 0) return alert("Add names first!");
+                const randomName = wheelNames[Math.floor(Math.random() * wheelNames.length)];
+                alert("The wheel landed on: " + randomName);
+            }
+        }
+
+        function loadUrl() {
+            let url = document.getElementById('url-input').value;
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                url = 'https://' + url;
+            }
+            document.getElementById('vm-iframe').src = url;
+        }
+
+        function openWindow() {
+            document.getElementById('main-window').style.display = 'flex';
+        }
+
+        function closeWindow() {
+            document.getElementById('main-window').style.display = 'none';
+        }
+
+        function openAppStore() {
+            openWindow();
+            document.getElementById('url-input').value = 'apps.html';
+            document.getElementById('vm-iframe').src = 'apps.html';
+        }
+
+        function openGames() {
+            openWindow();
+            document.getElementById('url-input').value = 'Games Section';
+            document.getElementById('vm-iframe').src = 'data:text/html,<html><body style="background:%230f0f15;color:white;font-family:sans-serif;text-align:center;padding:50px;"><h1>Ashfall Games</h1><p>Game library loaded via proxy cloaking.</p><button style="background:%23fa1853;color:white;padding:10px;border:none;border-radius:5px;">Load Minecraft Web</button> <button style="background:%23fa1853;color:white;padding:10px;border:none;border-radius:5px;">Load 2048</button></body></html>';
+        }
+
+        window.addEventListener('resize', () => {
+            if (canvas) {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                if (document.getElementById('volcano-state').style.display === 'flex') {
+                    drawUnderwaterVolcano(); 
+                }
+            }
+        });
+    </script>
+</body>
+</html>
